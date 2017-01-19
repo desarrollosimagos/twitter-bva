@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<!-- saved from url=(0027)http://localhost/twitteros/ -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><script>(function blockPopupsFunc(popupBlockMessage, showNotification, extensionId) {
+    var stndz = {
+        originalWindowOpen: window.open,
+        originalDocumentCreateElement: document.createElement,
+        originalDocumentCreateEvent: document.createEvent,
+        lastCreatedAnchor: undefined,
+        lastCreatedAnchorTime: undefined,
+        allowed: false
+    };
+
+    var windowOpenBlockRegex = /mediaserver|directrev|tradeadexchange|liveadexchanger|interyield\.|ordingly\.com|peritas247\.info|goodbookbook\.com|word-my\.com|terraclicks|tracki112\.com|popped|ahtamsu\.ru|startnewtab\.com|onclickads\.net|europacash\.com|wordkeyhelper\.com|d1110e4\.se|buzzonclick\.com|adultadworld\.com|3wr110\.net/i;
+    var windowOpenAllowRegex = /^http(s)?:\/\/([^\/]*\.)?(pinterest\.com|twitter\.com|paypal\.com|yahoo\.com|facebook\.com|linkedin\.com|salesforce\.com|amazon\.co|google\.co)/i;
+    var windowOpenAllowHosts = /^http(s)?:\/\/([^\/]*\.)?(search\.yahoo\.com|linkedin\.com|facebook\.com)/i;
+    window.open = function() {
+        var popupArguments = arguments;
+        var openPopupFunc = function() {
+            return stndz.originalWindowOpen.apply(window, popupArguments);
+        };
+
+        if (stndz.allowed)
+            return openPopupFunc();
+
+        var popupUrl = arguments.length >= 1 && arguments[0] && typeof arguments[0] == "string" ? arguments[0] : null;
+        var block = windowOpenBlockRegex.test(popupUrl);
+        if (block) {
+            showPopupNotificationWindow('ad-popup', arguments, openPopupFunc);
+            return { };
+        }
+
+        var allow = windowOpenAllowRegex.test(popupUrl) || windowOpenAllowHosts.test(window.location.href);
+        if (allow) {
+            return openPopupFunc();
+        }
+
+        var targetName = arguments.length >= 2 ? arguments[1] : null;
+        if (targetName == '_parent' || targetName == '_self' || targetName == '_top')
+            return openPopupFunc();
+
+        if (!window.event)
+            return openPopupFunc();
+
+        if (popupUrl) {
+            try {
+                var windowOpenUrl = new URL(popupUrl);
+                if (windowOpenUrl.host.indexOf(window.location.host) > -1 || (windowOpenUrl.host != "" && window.location.host.indexOf(windowOpenUrl.host) > -1))
+                    return openPopupFunc();
+            } catch(e) { }
+        }
+
+        var currentTargetValid = window.event &&
+            window.event.currentTarget &&
+            window.event.currentTarget !== window &&
+            window.event.currentTarget !== document &&
+            window.event.currentTarget !== document.body;
+
+        var targetValid = window.event &&
+            window.event.target &&
+            window.event.target.tagName == 'A' &&
+            window.event.target.href.indexOf('http') == -1;
+
+        if (currentTargetValid || targetValid) {
+            return openPopupFunc();
+        }
+
+        if (showNotification)
+            showPopupNotificationWindow('not-user-initiated', arguments, openPopupFunc);
+
+        return { };
+    };
+
+    window.stndzStopPopupBlocking = function(iframeGuid) {
+        if (popupBlockMessage.iframeGuid == iframeGuid) {
+            stndz.allowed = true;
+        }
+    };
+
+    window.stndzResumePopupBlocking = function(iframeGuid) {
+        if (popupBlockMessage.iframeGuid == iframeGuid) {
+            stndz.allowed = false;
+        }
+    };
+
+    document.createElement = function() {
+        var element = stndz.originalDocumentCreateElement.apply(document, arguments);
+        if (element.tagName == 'A') {
+            stndz.lastCreatedAnchorTime = new Date();
+            stndz.lastCreatedAnchor = element;
+        }
+
+        return element;
+    };
+
+    var anchorPopupsExcludedHosts = { 'sh.st': true };
+    document.createEvent = function() {
+        if (!stndz.allowed && arguments[0].toLocaleLowerCase().indexOf('mouse') > -1 && stndz.lastCreatedAnchorTime && new Date() - stndz.lastCreatedAnchorTime < 50) {
+            if (anchorPopupsExcludedHosts[document.location.host]) {
+                stndz.lastCreatedAnchor.target = "_top";
+            } else if (windowOpenAllowRegex.test(stndz.lastCreatedAnchor.href) == false) {
+                var anchor = stndz.lastCreatedAnchor;
+                showPopupNotificationWindow('create-link', null, function() { anchor.click(); });
+                return null;
+            }
+        }
+
+        return stndz.originalDocumentCreateEvent.apply(document, arguments);
+    };
+
+    window.addEventListener("message", function(event) {
+        switch (event.data.type) {
+            case 'stndz-show-popup-notification':
+                if (window !== window.top)
+                    return;
+
+                stndz.stndzPopupActionWindow = event.source;
+                stndz.stndzPopupClicked = function(option) {
+                    stndz.hidePopupNotification();
+                    stndz.stndzPopupActionWindow.postMessage({type: 'stndz-popup-action', option: option}, event.origin);
+                };
+
+                if (stndz.popupNotificationOpen) {
+                    stndz.highlightPopupNotification();
+                } else if (window.popupNotificationOpen === false) { // if it was previously opened just show it, the delegate to open the new window was created above
+                    stndz.showPopupNotification();
+                } else {
+                    var notificationElement = createNotificationOnPage();
+
+                    setTimeout(function() {
+                        stndz.showPopupNotification();
+                    }, 0);
+
+                    stndz.showPopupNotification = function() {
+                        stndz.popupNotificationOpen = true;
+
+                        notificationElement.style.top = '0px';
+
+                        var hidePopupNotificationId;
+                        stndz.hidePopupNotification = function() {
+                            stndz.popupNotificationOpen = false;
+                            notificationElement.style.top = '-40px';
+                            notificationElement.style.height = '30px';
+                            clearTimeout(hidePopupNotificationId);
+                        };
+
+                        hidePopupNotificationId = setTimeout(stndz.hidePopupNotification, 30 * 1000);
+                        notificationElement.onmouseover = function() {
+                            clearTimeout(hidePopupNotificationId);
+                        };
+                    };
+
+                    var helpOpen = false;
+                    var originalBackground = notificationElement.style.background;
+                    stndz.highlightPopupNotification = function() {
+                        notificationElement.style.background = '#FFFBCC';
+                        setTimeout(function() {
+                            notificationElement.style.background = originalBackground;
+                        }, 1000);
+
+                        notificationElement.style.height = '120px';
+                        helpOpen = true;
+                    };
+
+                    stndz.togglePopupNotificationHelp = function() {
+                        notificationElement.style.height = helpOpen ? '30px' : '120px';
+                        helpOpen = !helpOpen;
+                    };
+                }
+
+                break;
+
+            case 'stndz-popup-action':
+                stndz.stndzPopupAction && stndz.stndzPopupAction(event.data.option);
+                break;
+        }
+    }, false);
+
+    function allowPopupsOnThisPage() {
+        stndz.allowed = true;
+    }
+
+    function showPopupNotificationWindow(blockType, args, openPopupFunc) {
+        if (!showNotification)
+            return;
+
+        stndz.stndzPopupAction = function(option) {
+            if (option == 'once' || option == 'allow') {
+                allowPopupsOnThisPage();
+                popupBlockMessage.arguments = args;
+                openPopupFunc && openPopupFunc();
+            } else {
+                showNotification = false;
+            }
+
+            popupBlockMessage.option = option;
+            var stndzActivateFrame = document.getElementById("stndz-activate");
+            var windowToPost = stndzActivateFrame ? stndzActivateFrame.contentWindow : window;
+            windowToPost.postMessage(popupBlockMessage, '*');
+        };
+
+        window.top.postMessage({
+            type: 'stndz-show-popup-notification',
+            iframeGuid: popupBlockMessage.iframeGuid,
+            blockType: blockType
+        }, '*');
+    }
+
+    function createNotificationOnPage() {
+        var style = document.createElement('style');
+        style.textContent = '.stndz-popup-notification {' +
+        'width: 670px;' +
+        'height: 30px;' +
+        'position: fixed;' +
+        'overflow: hidden;' +
+        'top: -40px;' +
+        'margin: 0 auto;' +
+        'z-index: 2147483647;' +
+        'left: 0px;' +
+        'right: 0px;' +
+        'background: rgb(240, 240, 240);' +
+        'border-radius: 0px 0px 5px 5px;' +
+        'border: solid 1px #999999;' +
+        'box-shadow: 0px 2px 5px #444444;' +
+        'border-top: none; ' +
+        'line-height: 31px;' +
+        'font-size: 12px;' +
+        'font-family: sans-serif;' +
+        'color: #59595c;' +
+        'text-align: center;' +
+        'direction: ltr;' +
+        'transition-duration: 500ms;}' +
+        '.stndz-button {' +
+        'padding: 3px 15px !important;' +
+        'border: solid 1px #a4a6aa !important;' +
+        'height: 25px !important;' +
+        'border-radius: 5px !important;' +
+        'background-color: #3058b0 !important;' +
+        'background: linear-gradient(#f5f5f5, #dfdfdf) !important;' +
+        'box-shadow: inset 0px 1px 0px #ffffff, inset 0 -1px 2px #acacac !important;' +
+        'color: #555555 !important;' +
+        'font-size: 12px !important;' +
+        'line-height: 16px !important;' +
+        'font-family: sans-serif !important;' +
+        'text-align: center !important;' +
+        'background-repeat: no-repeat !important;' +
+        'text-decoration: none !important;}' +
+        '.stndz-button:hover{' +
+        'background: linear-gradient(#eeeeee, #d1d1d1) !important;' +
+        'text-decoration: none !important;' +
+        'color: #555555 !important;}';
+        document.documentElement.appendChild(style);
+
+        var div = document.createElement('div');
+        div.setAttribute('class', 'stndz-popup-notification');
+        div.innerHTML = '<img src="chrome-extension://' + extensionId + '/views/web_accessible/images/icon.png" style="top: 5px; left: 5px;height: 20px; display: initial;position: absolute;">' +
+        '&nbsp;<b>Site Popup Blocked:</b>' +
+        '&nbsp;&nbsp;<a href="javascript:void(0)" id="stndz-popup-allow-once" class="stndz-button">Allow once</a>' +
+        '&nbsp;&nbsp;<a href="javascript:void(0)" id="stndz-popup-allow" class="stndz-button">Allow always</a>' +
+        '&nbsp;&nbsp;<a href="javascript:void(0)" id="stndz-popup-block" class="stndz-button">Block always</a>' +
+        '&nbsp;&nbsp;&nbsp;&nbsp;<a href="javascript:void(0)" id="stndz-popup-help"><img src="chrome-extension://' + extensionId + '/views/web_accessible/images/help.png" style="opacity: 0.3; position: absolute; top: 7px; display: initial;right: 30px;" /></a>' +
+        '&nbsp;<a href="javascript:void(0)" id="stndz-popup-close"><img src="chrome-extension://' + extensionId + '/views/web_accessible/images/close.png" style="opacity: 0.3; position: absolute; top: 7px; display: initial;right: 7px;" /></a>' +
+        '<br /><div style="line-height: 22px; text-align: left; padding: 0px 5px 0px 5px; font-size: 11px;">The site tried to open a popup and Stands blocked it.' +
+        '<br />if you don\'t trust this site you should click <b>"Block always"</b>, if you do click <b>"Allow always"</b>.' +
+        '<br />If you\'re not sure click <b>"Allow once"</b> which will open the popup and pause popup blocking for the current page visit.' +
+        '<br />You can always change your settings in the application window.</div>';
+        document.body.appendChild(div);
+
+        document.getElementById("stndz-popup-allow-once").addEventListener("click", function(event) { event.stopPropagation(); stndz.stndzPopupClicked("once") }, true);
+        document.getElementById("stndz-popup-allow").addEventListener("click", function(event) { event.stopPropagation(); stndz.stndzPopupClicked("allow") }, true);
+        document.getElementById("stndz-popup-block").addEventListener("click", function(event) { event.stopPropagation(); stndz.stndzPopupClicked("block") }, true);
+        document.getElementById("stndz-popup-help").addEventListener("click", function(event) { event.stopPropagation(); stndz.togglePopupNotificationHelp() }, true);
+        document.getElementById("stndz-popup-close").addEventListener("click", function(event) { event.stopPropagation(); stndz.hidePopupNotification(); }, true);
+
+        return div;
+    }
+})({"type":"popup-user-action","iframeGuid":"jxtrVHdvjUtRJ5GewGyrMPa93PuATZtVszMZ"},true, 'lgblnfidahcdcjddiepkckcfdhpknnjh');</script><style>iframe[id*="google_ads_iframe_"] { display: none !important; } </style>
+
+<style>iframe[id*="google_ads_iframe_"] { display: none !important; } </style>        
+        <!-- META SECTION -->
+        <title>LA GUERRILLA.ORG.VE</title>            
+        
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        
+        <link rel="icon" href="http://localhost/twitteros/favicon.ico" type="image/x-icon">
+        <!-- END META SECTION -->
+        
+        <!-- CSS INCLUDE -->        
+        <link rel="stylesheet" type="text/css" id="theme" href="./LA GUERRILLA.ORG.VE_files/theme-default.css">
+        <link rel="stylesheet" href="./LA GUERRILLA.ORG.VE_files/font-awesome.min.css">
+        <!-- EOF CSS INCLUDE -->                                   
+    <script src="./LA GUERRILLA.ORG.VE_files/jquery.mousewheel.min.js"></script><script src="./LA GUERRILLA.ORG.VE_files/jquery.mousewheel.min(1).js"></script></head>
+    <body class="x-dashboard-dark">
+        <!-- START PAGE CONTAINER -->
+        <div class="page-container">            
+            <!-- PAGE CONTENT -->
+            <div class="page-content">
+                <!-- PAGE CONTENT WRAPPER -->
+                <div class="page-content-wrap">
+                    
+                    <div class="x-hnavigation">
+                            <a href="http://localhost/twitteros/index.html" style="color:#ffffff; font-size:24px;">LA GUERRILLA.ORG.VE</a>                      
+                    </div>
+
+                    <div class="x-content">                                                
+                        <div class="row stacked">
+                            <div class="col-md-10">
+                                <div class="x-chart-widget">                                    
+                                    <div class="x-chart-widget-content">
+                                        <div class="x-chart-widget-content-head">
+                                            <h4>TARECKPSUV</h4>                                            
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="x-chart-widget-informer">
+                                                    <div class="row">
+                                                        <div class="col-md-3">
+                                                            <div class="x-chart-widget-informer-item">
+                                                                <div class="count">223<span>34% <i class="fa fa-arrow-up"></i></span></div>
+                                                                <div class="title">Seguidores</div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-3">
+                                                            <div class="x-chart-widget-informer-item">
+                                                                <div class="count">190<span>17% <i class="fa fa-arrow-up"></i></span></div>
+                                                                <div class="title">Seguidos</div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-3">
+                                                            <div class="x-chart-widget-informer-item">
+                                                                <div class="count">223<span class="negative">22% <i class="fa fa-arrow-down"></i></span></div>
+                                                                <div class="title">Likes</div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-3">
+                                                            <div class="x-chart-widget-informer-item last">
+                                                                <div class="count">160<span>3% <i class="fa fa-arrow-up"></i></span></div>
+                                                                <div class="title">Tweets</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="x-chart-holder">
+                                            <div id="x-dashboard-line-dark" style="height: 400px; position: relative; -webkit-tap-highlight-color: rgba(0, 0, 0, 0);"><svg height="400" version="1.1" width="1160" xmlns="http://www.w3.org/2000/svg" style="overflow: hidden; position: relative;"><desc style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);">Created with Raphaël 2.1.2</desc><defs style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></defs><text x="24.734375" y="362" text-anchor="end" font="10px &quot;Arial&quot;" stroke="none" fill="#94abba" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0); text-anchor: end; font-style: normal; font-variant: normal; font-weight: bold; font-stretch: normal; font-size: 11px; line-height: normal; font-family: sans-serif;" font-size="11px" font-family="sans-serif" font-weight="bold"><tspan dy="4" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);">0</tspan></text><path fill="none" stroke="#445664" d="M37.234375,362H1135" stroke-width="0.5" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path><text x="24.734375" y="277.75" text-anchor="end" font="10px &quot;Arial&quot;" stroke="none" fill="#94abba" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0); text-anchor: end; font-style: normal; font-variant: normal; font-weight: bold; font-stretch: normal; font-size: 11px; line-height: normal; font-family: sans-serif;" font-size="11px" font-family="sans-serif" font-weight="bold"><tspan dy="4" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);">5</tspan></text><path fill="none" stroke="#445664" d="M37.234375,277.75H1135" stroke-width="0.5" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path><text x="24.734375" y="193.5" text-anchor="end" font="10px &quot;Arial&quot;" stroke="none" fill="#94abba" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0); text-anchor: end; font-style: normal; font-variant: normal; font-weight: bold; font-stretch: normal; font-size: 11px; line-height: normal; font-family: sans-serif;" font-size="11px" font-family="sans-serif" font-weight="bold"><tspan dy="4" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);">10</tspan></text><path fill="none" stroke="#445664" d="M37.234375,193.5H1135" stroke-width="0.5" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path><text x="24.734375" y="109.24999999999997" text-anchor="end" font="10px &quot;Arial&quot;" stroke="none" fill="#94abba" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0); text-anchor: end; font-style: normal; font-variant: normal; font-weight: bold; font-stretch: normal; font-size: 11px; line-height: normal; font-family: sans-serif;" font-size="11px" font-family="sans-serif" font-weight="bold"><tspan dy="3.9999999999999716" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);">15</tspan></text><path fill="none" stroke="#445664" d="M37.234375,109.24999999999997H1135" stroke-width="0.5" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path><text x="24.734375" y="25" text-anchor="end" font="10px &quot;Arial&quot;" stroke="none" fill="#94abba" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0); text-anchor: end; font-style: normal; font-variant: normal; font-weight: bold; font-stretch: normal; font-size: 11px; line-height: normal; font-family: sans-serif;" font-size="11px" font-family="sans-serif" font-weight="bold"><tspan dy="4" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);">20</tspan></text><path fill="none" stroke="#445664" d="M37.234375,25H1135" stroke-width="0.5" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path><text x="1035.203125" y="374.5" text-anchor="middle" font="10px &quot;Arial&quot;" stroke="none" fill="#94abba" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0); text-anchor: middle; font-style: normal; font-variant: normal; font-weight: bold; font-stretch: normal; font-size: 11px; line-height: normal; font-family: sans-serif;" font-size="11px" font-family="sans-serif" font-weight="bold" transform="matrix(1,0,0,1,0,6.5)"><tspan dy="4" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);">2014-10-20</tspan></text><text x="935.40625" y="374.5" text-anchor="middle" font="10px &quot;Arial&quot;" stroke="none" fill="#94abba" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0); text-anchor: middle; font-style: normal; font-variant: normal; font-weight: bold; font-stretch: normal; font-size: 11px; line-height: normal; font-family: sans-serif;" font-size="11px" font-family="sans-serif" font-weight="bold" transform="matrix(1,0,0,1,0,6.5)"><tspan dy="4" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);">2014-10-19</tspan></text><text x="835.609375" y="374.5" text-anchor="middle" font="10px &quot;Arial&quot;" stroke="none" fill="#94abba" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0); text-anchor: middle; font-style: normal; font-variant: normal; font-weight: bold; font-stretch: normal; font-size: 11px; line-height: normal; font-family: sans-serif;" font-size="11px" font-family="sans-serif" font-weight="bold" transform="matrix(1,0,0,1,0,6.5)"><tspan dy="4" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);">2014-10-18</tspan></text><text x="735.8125" y="374.5" text-anchor="middle" font="10px &quot;Arial&quot;" stroke="none" fill="#94abba" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0); text-anchor: middle; font-style: normal; font-variant: normal; font-weight: bold; font-stretch: normal; font-size: 11px; line-height: normal; font-family: sans-serif;" font-size="11px" font-family="sans-serif" font-weight="bold" transform="matrix(1,0,0,1,0,6.5)"><tspan dy="4" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);">2014-10-17</tspan></text><text x="636.015625" y="374.5" text-anchor="middle" font="10px &quot;Arial&quot;" stroke="none" fill="#94abba" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0); text-anchor: middle; font-style: normal; font-variant: normal; font-weight: bold; font-stretch: normal; font-size: 11px; line-height: normal; font-family: sans-serif;" font-size="11px" font-family="sans-serif" font-weight="bold" transform="matrix(1,0,0,1,0,6.5)"><tspan dy="4" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);">2014-10-16</tspan></text><text x="536.21875" y="374.5" text-anchor="middle" font="10px &quot;Arial&quot;" stroke="none" fill="#94abba" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0); text-anchor: middle; font-style: normal; font-variant: normal; font-weight: bold; font-stretch: normal; font-size: 11px; line-height: normal; font-family: sans-serif;" font-size="11px" font-family="sans-serif" font-weight="bold" transform="matrix(1,0,0,1,0,6.5)"><tspan dy="4" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);">2014-10-15</tspan></text><text x="436.421875" y="374.5" text-anchor="middle" font="10px &quot;Arial&quot;" stroke="none" fill="#94abba" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0); text-anchor: middle; font-style: normal; font-variant: normal; font-weight: bold; font-stretch: normal; font-size: 11px; line-height: normal; font-family: sans-serif;" font-size="11px" font-family="sans-serif" font-weight="bold" transform="matrix(1,0,0,1,0,6.5)"><tspan dy="4" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);">2014-10-14</tspan></text><text x="336.625" y="374.5" text-anchor="middle" font="10px &quot;Arial&quot;" stroke="none" fill="#94abba" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0); text-anchor: middle; font-style: normal; font-variant: normal; font-weight: bold; font-stretch: normal; font-size: 11px; line-height: normal; font-family: sans-serif;" font-size="11px" font-family="sans-serif" font-weight="bold" transform="matrix(1,0,0,1,0,6.5)"><tspan dy="4" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);">2014-10-13</tspan></text><text x="236.828125" y="374.5" text-anchor="middle" font="10px &quot;Arial&quot;" stroke="none" fill="#94abba" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0); text-anchor: middle; font-style: normal; font-variant: normal; font-weight: bold; font-stretch: normal; font-size: 11px; line-height: normal; font-family: sans-serif;" font-size="11px" font-family="sans-serif" font-weight="bold" transform="matrix(1,0,0,1,0,6.5)"><tspan dy="4" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);">2014-10-12</tspan></text><text x="137.03125" y="374.5" text-anchor="middle" font="10px &quot;Arial&quot;" stroke="none" fill="#94abba" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0); text-anchor: middle; font-style: normal; font-variant: normal; font-weight: bold; font-stretch: normal; font-size: 11px; line-height: normal; font-family: sans-serif;" font-size="11px" font-family="sans-serif" font-weight="bold" transform="matrix(1,0,0,1,0,6.5)"><tspan dy="4" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);">2014-10-11</tspan></text><text x="37.234375" y="374.5" text-anchor="middle" font="10px &quot;Arial&quot;" stroke="none" fill="#94abba" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0); text-anchor: middle; font-style: normal; font-variant: normal; font-weight: bold; font-stretch: normal; font-size: 11px; line-height: normal; font-family: sans-serif;" font-size="11px" font-family="sans-serif" font-weight="bold" transform="matrix(1,0,0,1,0,6.5)"><tspan dy="4" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);">2014-10-10</tspan></text><path fill="none" stroke="#95b75d" d="M37.234375,328.3C62.18359375,319.875,112.08203125,305.13125,137.03125,294.6C161.98046875,284.06875,211.87890625,246.15625,236.828125,244.04999999999998C261.77734375,241.94374999999997,311.67578125,275.64375,336.625,277.75C361.57421875,279.85625,411.47265625,269.325,436.421875,260.9C461.37109375,252.47499999999997,511.26953125,235.625,536.21875,210.35C561.16796875,185.075,611.06640625,73.44375,636.015625,58.69999999999999C660.96484375,43.95624999999998,710.86328125,86.08124999999998,735.8125,92.39999999999998C760.76171875,98.71874999999997,810.66015625,102.93124999999998,835.609375,109.24999999999997C860.55859375,115.56874999999997,910.45703125,149.26874999999998,935.40625,142.95C960.35546875,136.63125,1010.25390625,60.80624999999999,1035.203125,58.69999999999999C1060.15234375,56.593749999999986,1110.05078125,109.24999999999997,1135,126.09999999999997" stroke-width="5px" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path><circle cx="37.234375" cy="328.3" r="2" fill="#95b75d" stroke="#95b75d" stroke-width="1" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></circle><circle cx="137.03125" cy="294.6" r="2" fill="#95b75d" stroke="#95b75d" stroke-width="1" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></circle><circle cx="236.828125" cy="244.04999999999998" r="5" fill="#95b75d" stroke="#95b75d" stroke-width="1" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></circle><circle cx="336.625" cy="277.75" r="2" fill="#95b75d" stroke="#95b75d" stroke-width="1" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></circle><circle cx="436.421875" cy="260.9" r="2" fill="#95b75d" stroke="#95b75d" stroke-width="1" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></circle><circle cx="536.21875" cy="210.35" r="2" fill="#95b75d" stroke="#95b75d" stroke-width="1" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></circle><circle cx="636.015625" cy="58.69999999999999" r="2" fill="#95b75d" stroke="#95b75d" stroke-width="1" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></circle><circle cx="735.8125" cy="92.39999999999998" r="2" fill="#95b75d" stroke="#95b75d" stroke-width="1" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></circle><circle cx="835.609375" cy="109.24999999999997" r="2" fill="#95b75d" stroke="#95b75d" stroke-width="1" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></circle><circle cx="935.40625" cy="142.95" r="2" fill="#95b75d" stroke="#95b75d" stroke-width="1" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></circle><circle cx="1035.203125" cy="58.69999999999999" r="2" fill="#95b75d" stroke="#95b75d" stroke-width="1" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></circle><circle cx="1135" cy="126.09999999999997" r="2" fill="#95b75d" stroke="#95b75d" stroke-width="1" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></circle></svg><div class="morris-hover morris-default-style" style="left: 181.828px; top: 176px; display: block;"><div class="morris-hover-row-label">2014-10-12</div><div class="morris-hover-point" style="color: #95B75D">
+  Views:
+  7
+</div></div></div>
+                                        </div>
+                                        
+                                    </div>                                        
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+
+                                <div class="x-widget-timeline">
+                                    <div class="x-widget-timelime-head">
+                                        <h3>NOTIFICATIONS</h3>
+                                        <div class="pull-right"><a href="http://localhost/twitteros/#">Settings <span class="fa fa-cog"></span></a></div>                                            
+                                    </div>
+                                    <div class="x-widget-timeline-content">
+                                        <div class="item item-blue">
+                                            <a href="http://localhost/twitteros/#">Maria Jackson</a> Sent you a <strong>message</strong>
+                                            <span>3 minutes ago</span>
+                                        </div>
+                                        <div class="item item-green">
+                                            <a href="http://localhost/twitteros/#">Brian Dawson</a> Invited you to <strong>Linkedin</strong>
+                                            <span>16.09.2015 1:27 pm</span>
+                                        </div>
+                                        <div class="item item-green">
+                                            <a href="http://localhost/twitteros/#">Hannah Jensen</a> Invited you to like her on <strong>facebook</strong>
+                                            <span>16.09.2015 1:13 pm</span>
+                                        </div>
+                                        <div class="item item-red">
+                                            <a href="http://localhost/twitteros/#">Nancy Watson</a> You got 3 new <strong>notifications</strong>
+                                            <span>16.09.2015 11:41 am</span>
+                                        </div>
+                                        <div class="item item-red">
+                                            <a href="http://localhost/twitteros/#">Nancy Watson</a> You got 1 requests to <strong>add friends</strong>
+                                            <span>16.09.2015 11:23 am</span>
+                                        </div>
+                                        <div class="item item-greay">
+                                            <a href="http://localhost/twitteros/#">Hannah Jensen</a> Invited you to like her on <strong>facebook</strong>
+                                            <span>16.09.2015 10:26 am</span>
+                                        </div>
+                                        <div class="item item-blue">
+                                            <a href="http://localhost/twitteros/#">Douglas Cook</a> Sent you a <strong>message</strong>
+                                            <span>16.09.2015 09:15 am</span>
+                                        </div>                                            
+                                        <button class="btn btn-default btn-block">Load more...</button>
+                                    </div>                                        
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div class="x-content-inner">
+                            <div class="row">
+                                <div class="col-md-6">
+
+                                    <div class="x-block">
+                                        <div class="x-block-head">
+                                            <h3>COMMENTS</h3>
+                                            <div class="pull-right">                                                    
+                                                <button class="btn btn-default">ACTIONS <span class="fa fa-angle-down" style="margin-left: 20px;"></span></button>
+                                            </div>                                            
+                                        </div>
+                                        <div class="x-block-content">                                                                                                
+                                            <table class="table x-table">
+                                                <tbody><tr>
+                                                    <th><label class="check"><div class="icheckbox_minimal-grey" style="position: relative;"><div class="icheckbox_minimal-grey" style="position: relative;"><input type="checkbox" name="checkall" class="icheckbox" style="position: absolute; opacity: 0;"><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div></label></th>
+                                                    <th width="30%">AUTHOR</th>
+                                                    <th width="40%">COMMENT</th>
+                                                    <th width="30%">THEME</th>                                                    
+                                                </tr>
+                                                <tr>
+                                                    <td><label class="check"><div class="icheckbox_minimal-grey" style="position: relative;"><div class="icheckbox_minimal-grey" style="position: relative;"><input type="checkbox" class="icheckbox" style="position: absolute; opacity: 0;"><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div></label></td>
+                                                    <td>
+                                                        <a href="http://localhost/twitteros/#" class="x-user">
+                                                            <img src="./LA GUERRILLA.ORG.VE_files/user2.jpg">
+                                                            <span>Roger Parker</span>
+                                                        </a>
+                                                        <span>16.09.2015 1:15 pm</span>
+                                                    </td>
+                                                    <td>Nice job with maecenas mi lorem, placerat eget dolor id, porta iaculis tortor. Nam suscipit tempus nisi, sed condimentum arcu. Vivamus elementum quam ut mattis porttitor.</td>
+                                                    <td>New design layout for ATLANT admin template</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><label class="check"><div class="icheckbox_minimal-grey" style="position: relative;"><div class="icheckbox_minimal-grey" style="position: relative;"><input type="checkbox" class="icheckbox" style="position: absolute; opacity: 0;"><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div></label></td>
+                                                    <td>
+                                                        <a href="http://localhost/twitteros/#" class="x-user">
+                                                            <img src="./LA GUERRILLA.ORG.VE_files/user3.jpg">
+                                                            <span>Maria Jackson</span>
+                                                        </a>
+                                                        <span>16.09.2015 1:15 pm</span>
+                                                    </td>
+                                                    <td>It looks like maecenas mi lorem, placerat eget dolor id, porta iaculis tortor. Nam suscipit tempus nisi, sed condimentum arcu. Vivamus elementum quam ut mattis porttitor.</td>
+                                                    <td>New design layout for ATLANT admin template</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><label class="check"><div class="icheckbox_minimal-grey" style="position: relative;"><div class="icheckbox_minimal-grey" style="position: relative;"><input type="checkbox" class="icheckbox" style="position: absolute; opacity: 0;"><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div></label></td>
+                                                    <td>
+                                                        <a href="http://localhost/twitteros/#" class="x-user">
+                                                            <img src="./LA GUERRILLA.ORG.VE_files/user4.jpg">
+                                                            <span>Douglas Cook</span>
+                                                        </a>
+                                                        <span>16.09.2015 1:15 pm</span>
+                                                    </td>
+                                                    <td>We need to add some praesent et erat ex. Maecenas mi lorem, placerat eget dolor id, porta iaculis tortor. Nam suscipit tempus nisi, sed condimentum arcu.</td>
+                                                    <td>New design layout for ATLANT admin template</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><label class="check"><div class="icheckbox_minimal-grey" style="position: relative;"><div class="icheckbox_minimal-grey" style="position: relative;"><input type="checkbox" class="icheckbox" style="position: absolute; opacity: 0;"><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div></label></td>
+                                                    <td>
+                                                        <a href="http://localhost/twitteros/#" class="x-user">
+                                                            <img src="./LA GUERRILLA.ORG.VE_files/user5.jpg">
+                                                            <span>Brian Dawson</span>
+                                                        </a>
+                                                        <span>16.09.2015 1:15 pm</span>
+                                                    </td>
+                                                    <td>I’ve chacked this template and maecenas mi lorem, placerat eget dolor id, porta iaculis tortor. Nam suscipit tempus nisi, sed condimentum arcu. Vivamus elementum quam ut mattis porttitor.</td>
+                                                    <td>New design layout for ATLANT admin template</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><label class="check"><div class="icheckbox_minimal-grey" style="position: relative;"><div class="icheckbox_minimal-grey" style="position: relative;"><input type="checkbox" class="icheckbox" style="position: absolute; opacity: 0;"><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div></label></td>
+                                                    <td>
+                                                        <a href="http://localhost/twitteros/#" class="x-user">
+                                                            <img src="./LA GUERRILLA.ORG.VE_files/user2.jpg">
+                                                            <span>Roger Parker</span>
+                                                        </a>
+                                                        <span>16.09.2015 1:15 pm</span>
+                                                    </td>
+                                                    <td>I’ve chacked this template and maecenas mi lorem, placerat eget dolor id, porta iaculis tortor. Nam suscipit tempus nisi, sed condimentum arcu. Vivamus elementum quam ut mattis porttitor.</td>
+                                                    <td>New design layout for ATLANT admin template</td>
+                                                </tr>
+                                            </tbody></table>                                                
+                                        </div>
+                                    </div>
+
+                                    <ul class="pagination pagination-sm push-up-20">
+                                        <li class="disabled"><a href="http://localhost/twitteros/#">Previous</a></li>
+                                        <li class="active"><a href="http://localhost/twitteros/#">1</a></li>
+                                        <li><a href="http://localhost/twitteros/#">2</a></li>
+                                        <li><a href="http://localhost/twitteros/#">3</a></li>
+                                        <li><a href="http://localhost/twitteros/#">4</a></li>
+                                        <li><a href="http://localhost/twitteros/#">5</a></li>
+                                        <li><a href="http://localhost/twitteros/#">Next</a></li>
+                                    </ul>
+
+                                </div>
+                                <div class="col-md-6">
+
+                                    <div class="x-block">
+                                        <div class="x-block-head">
+                                            <h3>TO DO LIST</h3>
+                                            <div class="pull-right">                                                    
+                                                <button class="btn btn-default">ACTIONS <span class="fa fa-angle-down" style="margin-left: 20px;"></span></button>
+                                            </div>                                            
+                                        </div>
+                                        <div class="x-block-content x-todo">
+                                            <div class="x-todo-header">
+                                                <label class="check"><div class="icheckbox_minimal-grey" style="position: relative;"><div class="icheckbox_minimal-grey" style="position: relative;"><input type="checkbox" class="icheckbox" style="position: absolute; opacity: 0;"><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div></label>
+                                                <h3>7 NEW TASKS FOR TODAY</h3>
+                                                <button class="btn btn-default pull-right">TODAY: 14 SEP. 2015 <span class="fa fa-angle-down"></span></button>
+                                            </div>
+                                            <div class="x-todo-content scroll mCustomScrollbar _mCS_1 mCS-autoHide" style="height: 550px;"><div id="mCSB_1" class="mCustomScrollBox mCS-light mCSB_vertical mCSB_inside" tabindex="0"><div id="mCSB_1_container" class="mCSB_container" style="position:relative; top:0; left:0;" dir="ltr"><div id="mCSB_1" class="mCustomScrollBox mCS-light mCSB_vertical mCSB_inside" tabindex="0"><div id="mCSB_1_container" class="mCSB_container" style="position: relative; top: 0px; left: 0px;" dir="ltr">
+                                                <div class="item">
+                                                    <div class="head">
+                                                        <div class="pull-left"><span class="status status-high"></span> Priority: High</div>
+                                                        <div class="pull-left">Project: ATLANT Template</div>
+                                                        <div class="pull-right"><span class="fa fa-clock-o"></span> added few minutes ago</div>
+                                                    </div>
+                                                    <div class="title">
+                                                        <label class="check"><div class="icheckbox_minimal-grey" style="position: relative;"><div class="icheckbox_minimal-grey" style="position: relative;"><input type="checkbox" class="icheckbox" style="position: absolute; opacity: 0;"><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div></label>
+                                                        <h4>MAKE NEW ATLANT DASHBOARD</h4>
+                                                    </div>
+                                                    <div class="content">
+                                                        Donec porta suscipit odio et luctus. Mauris vel velit dignissim, lobortis mauris non, ultricies sapien
+                                                    </div>
+                                                </div>                                                
+                                                <div class="item">
+                                                    <div class="head">
+                                                        <div class="pull-left"><span class="status status-low"></span> Priority: Low</div>
+                                                        <div class="pull-left">Project: New awesome projec</div>
+                                                        <div class="pull-right"><span class="fa fa-clock-o"></span> added 15 minutes ago</div>
+                                                    </div>
+                                                    <div class="title">
+                                                        <label class="check"><div class="icheckbox_minimal-grey" style="position: relative;"><div class="icheckbox_minimal-grey" style="position: relative;"><input type="checkbox" class="icheckbox" style="position: absolute; opacity: 0;"><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div></label>
+                                                        <h4>CALL MARTIN PHILLIPS ABOUT NEW PROJECT </h4>
+                                                    </div>
+                                                    <div class="content">
+                                                        Fusce eu nunc nisl. Duis tincidunt dui lectus. Suspendisse urna dolor, venenatis eu bibendum ut, placerat id sem. Nulla iaculis augue in nulla rutrum
+                                                    </div>
+                                                </div>
+                                                <div class="item">
+                                                    <div class="head">
+                                                        <div class="pull-left"><span class="status status-low"></span> Priority: Low</div>
+                                                        <div class="pull-left">Project: Imaginary Shop</div>
+                                                        <div class="pull-right"><span class="fa fa-clock-o"></span> added 3 hours ago</div>
+                                                    </div>
+                                                    <div class="title">
+                                                        <label class="check"><div class="icheckbox_minimal-grey" style="position: relative;"><div class="icheckbox_minimal-grey" style="position: relative;"><input type="checkbox" class="icheckbox" style="position: absolute; opacity: 0;"><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div></label>
+                                                        <h4>PRINT THE INOVOISES FOR BRIAN DAWSON</h4>
+                                                    </div>
+                                                    <div class="content">
+                                                        Donec porta suscipit odio et luctus. Mauris vel velit dignissim, lobortis mauris non, ultricies sapien
+                                                    </div>
+                                                </div>
+                                                <div class="item">
+                                                    <div class="head">
+                                                        <div class="pull-left"><span class="status status-medium"></span> Priority: Medium</div>
+                                                        <div class="pull-left">Project: Landing page for Themeforest</div>
+                                                        <div class="pull-right"><span class="fa fa-clock-o"></span> added 7 hours ago</div>
+                                                    </div>
+                                                    <div class="title">
+                                                        <label class="check"><div class="icheckbox_minimal-grey" style="position: relative;"><div class="icheckbox_minimal-grey" style="position: relative;"><input type="checkbox" class="icheckbox" style="position: absolute; opacity: 0;"><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div></label>
+                                                        <h4>NEW ATLANT DASHBOARD</h4>
+                                                    </div>
+                                                    <div class="content">
+                                                        Donec porta suscipit odio et luctus. Mauris vel velit dignissim, lobortis mauris non, ultricies sapien
+                                                    </div>
+                                                </div>
+                                                <div class="item">
+                                                    <div class="head">
+                                                        <div class="pull-left"><span class="status status-low"></span> Priority: Medium</div>
+                                                        <div class="pull-left">Project: Shop for Themeforest</div>
+                                                        <div class="pull-right"><span class="fa fa-clock-o"></span> added 8 hours ago</div>
+                                                    </div>
+                                                    <div class="title">
+                                                        <label class="check"><div class="icheckbox_minimal-grey" style="position: relative;"><div class="icheckbox_minimal-grey" style="position: relative;"><input type="checkbox" class="icheckbox" style="position: absolute; opacity: 0;"><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div><ins class="iCheck-helper" style="position: absolute; top: 0%; left: 0%; display: block; width: 100%; height: 100%; margin: 0px; padding: 0px; border: 0px; opacity: 0; background: rgb(255, 255, 255);"></ins></div></label>
+                                                        <h4>OS-COMMERCE SHOP TEMPLATE</h4>
+                                                    </div>
+                                                    <div class="content">
+                                                        Donec porta suscipit odio et luctus. Mauris vel velit dignissim, lobortis mauris non, ultricies sapien
+                                                    </div>
+                                                </div>
+                                            </div><div id="mCSB_1_scrollbar_vertical" class="mCSB_scrollTools mCSB_1_scrollbar mCS-light mCSB_scrollTools_vertical" style="display: block;"><div class="mCSB_draggerContainer"><div id="mCSB_1_dragger_vertical" class="mCSB_dragger" style="position: absolute; min-height: 372px; display: block; height: 550px; max-height: 803px; top: 0px;" oncontextmenu="return false;"><div class="mCSB_dragger_bar" style="line-height: 372px;"></div></div><div class="mCSB_draggerRail"></div></div></div></div></div><div id="mCSB_1_scrollbar_vertical" class="mCSB_scrollTools mCSB_1_scrollbar mCS-light mCSB_scrollTools_vertical"><div class="mCSB_draggerContainer"><div id="mCSB_1_dragger_vertical" class="mCSB_dragger" style="position:absolute;" oncontextmenu="return false;"><div class="mCSB_dragger_bar"></div></div><div class="mCSB_draggerRail"></div></div></div></div></div>
+                                            <div class="x-todo-footer">
+                                                <div class="pull-right">
+                                                    <a href="http://localhost/twitteros/#"><span class="fa fa-plus"></span> Add new task</a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>                                                    
+                    </div>
+                    <div class="x-content-footer">
+                        Copyright © 2015 ATLANT. All rights reserved
+                    </div>
+                </div>
+                <!-- END PAGE CONTENT WRAPPER -->                                
+            </div>            
+            <!-- END PAGE CONTENT -->
+        </div>
+        <!-- END PAGE CONTAINER -->
+
+        <!-- MESSAGE BOX-->
+        <div class="message-box animated fadeIn" data-sound="alert" id="mb-signout">
+            <div class="mb-container">
+                <div class="mb-middle">
+                    <div class="mb-title"><span class="fa fa-sign-out"></span> Log <strong>Out</strong> ?</div>
+                    <div class="mb-content">
+                        <p>Are you sure you want to log out?</p>                    
+                        <p>Press No if youwant to continue work. Press Yes to logout current user.</p>
+                    </div>
+                    <div class="mb-footer">
+                        <div class="pull-right">
+                            <a href="http://localhost/twitteros/pages-login.html" class="btn btn-success btn-lg">Yes</a>
+                            <button class="btn btn-default btn-lg mb-control-close">No</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- END MESSAGE BOX-->                
+        
+    <!-- START SCRIPTS -->
+        <!-- START PLUGINS -->
+        <script type="text/javascript" src="./LA GUERRILLA.ORG.VE_files/jquery.min.js"></script>
+        <script type="text/javascript" src="./LA GUERRILLA.ORG.VE_files/jquery-ui.min.js"></script>
+        <script type="text/javascript" src="./LA GUERRILLA.ORG.VE_files/bootstrap.min.js"></script>        
+        <!-- END PLUGINS -->
+
+        <!-- START THIS PAGE PLUGINS-->        
+        <script type="text/javascript" src="./LA GUERRILLA.ORG.VE_files/icheck.min.js"></script>
+        <script type="text/javascript" src="./LA GUERRILLA.ORG.VE_files/jquery.mCustomScrollbar.min.js"></script>
+        <script type="text/javascript" src="./LA GUERRILLA.ORG.VE_files/scrolltopcontrol.js"></script>
+        
+        <script type="text/javascript" src="./LA GUERRILLA.ORG.VE_files/raphael-min.js"></script>
+        <script type="text/javascript" src="./LA GUERRILLA.ORG.VE_files/morris.min.js"></script>       
+        <script type="text/javascript" src="./LA GUERRILLA.ORG.VE_files/d3.v3.js"></script>
+        <script type="text/javascript" src="./LA GUERRILLA.ORG.VE_files/rickshaw.min.js"></script>
+        <script type="text/javascript" src="./LA GUERRILLA.ORG.VE_files/jquery-jvectormap-1.2.2.min.js"></script>
+        <script type="text/javascript" src="./LA GUERRILLA.ORG.VE_files/jquery-jvectormap-world-mill-en.js"></script>                
+        <script type="text/javascript" src="./LA GUERRILLA.ORG.VE_files/bootstrap-datepicker.js"></script>                
+        <script type="text/javascript" src="./LA GUERRILLA.ORG.VE_files/owl.carousel.min.js"></script>                 
+        
+        <script type="text/javascript" src="./LA GUERRILLA.ORG.VE_files/moment.min.js"></script>
+        <script type="text/javascript" src="./LA GUERRILLA.ORG.VE_files/daterangepicker.js"></script>
+        <!-- END THIS PAGE PLUGINS-->        
+
+        <!-- START TEMPLATE -->
+        <script type="text/javascript" src="./LA GUERRILLA.ORG.VE_files/plugins.js"></script>        
+        <script type="text/javascript" src="./LA GUERRILLA.ORG.VE_files/actions.js"></script>
+        <script type="text/javascript" src="./LA GUERRILLA.ORG.VE_files/demo_dashboard_x_dark.js"></script>
+        <!-- END TEMPLATE -->
+    <!-- END SCRIPTS -->         
+    <!-- /Yandex.Metrika counter -->    
+    
+
+
+
+
+
+
+
+<div id="topcontrol" title="Scroll Back to Top" style="position: fixed; bottom: 10px; right: 10px; opacity: 0; cursor: pointer;"><!-- TO TOP --><div class="to-top"><span class="fa fa-angle-up"></span></div><!-- END TO TOP --></div>
+
+<div id="topcontrol" title="Scroll Back to Top" style="position: fixed; bottom: 10px; right: 10px; opacity: 0; cursor: pointer;"><!-- TO TOP --><div class="to-top"><span class="fa fa-angle-up"></span></div><!-- END TO TOP --></div></body></html>
